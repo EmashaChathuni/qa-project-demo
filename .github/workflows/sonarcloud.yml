@@ -1,48 +1,51 @@
-name: SonarCloud Analysis
+name: SonarCloud Scan
+
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    types: [opened, synchronize, reopened]
+    branches: [ main ]
 
 jobs:
-  sonarcloud:
-    name: SonarCloud
+  sonar:
+    name: SonarCloud Scan (Maven)
     runs-on: ubuntu-latest
+    if: secrets.SONAR_TOKEN != ''
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
+          cache: maven
 
-      - name: Build backend (Maven)
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-
+
+      - name: Run SonarCloud scanner (Maven)
+        env:
+          SONAR_TOKEN: ${{ c9f06d2814c611794dbb375467113b41ce74c3a9 }}
         working-directory: qa/backend
         run: |
-          chmod +x mvnw || true
-          ./mvnw -B -DskipTests package
+          chmod +x ./mvnw.cmd || true
+          ./mvnw.cmd -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.projectKey=${{ EmashaChathuni_qa-project-demo }} \
+            -Dsonar.organization=${{ EmashaChathuni }} \
+            -Dsonar.host.url=${{ https://sonarcloud.io }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
+# Notes:
+# - This workflow runs only if SONAR_TOKEN is set in repository secrets.
+# - Required secrets: SONAR_TOKEN, SONAR_PROJECT_KEY, SONAR_ORGANIZATION, SONAR_HOST_URL (e.g., https://sonarcloud.io)name: REMOVED - SonarCloud workflow was removed
 
-      - name: Build frontend (npm)
-        working-directory: qa/frontend
-        run: |
-          npm ci
-          npm test -- --coverage || true
+# This workflow was removed on 2025-10-12. To re-enable SonarCloud, recreate the workflow
+# and set the required repository secret: SONAR_TOKEN
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        with:
-          projectBaseDir: .
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
